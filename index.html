@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>勇者传说 - 100关挑战</title>
+  <title>勇者传说 - 点击攻击版</title>
   <style>
     * {
       margin: 0;
@@ -36,6 +36,7 @@
         0 12px 30px rgba(0, 0, 0, 0.6),
         inset 0 0 0 1px rgba(100, 150, 255, 0.15);
       backdrop-filter: blur(2px);
+      cursor: pointer;
     }
 
     #gameCanvas {
@@ -80,49 +81,6 @@
     #uiPanel span {
       font-weight: bold;
       color: #4fc3f7;
-    }
-
-    #skillPanel {
-      position: absolute;
-      bottom: 12px;
-      right: 12px;
-      display: flex;
-      gap: 6px;
-      z-index: 10;
-    }
-
-    .skill {
-      width: 44px;
-      height: 44px;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: rgba(20, 30, 50, 0.8);
-      border: 2px solid #4fc3f7;
-      color: white;
-      font-size: 11px;
-      font-weight: bold;
-      cursor: pointer;
-      user-select: none;
-      transition: all 0.2s;
-    }
-
-    .skill:hover {
-      transform: scale(1.05);
-      border-color: #81d4fa;
-    }
-
-    .skill.cooldown {
-      opacity: 0.5;
-      border-color: #555;
-      background: rgba(30, 40, 60, 0.8);
-    }
-
-    .skill-key {
-      font-size: 16px;
-      margin-bottom: 1px;
     }
 
     #message {
@@ -181,42 +139,6 @@
       z-index: 12;
     }
 
-    #gameInstructions {
-      position: absolute;
-      top: 42px;
-      right: 12px;
-      background-color: rgba(50, 70, 90, 0.8);
-      color: white;
-      padding: 10px;
-      border-radius: 10px;
-      backdrop-filter: blur(10px);
-      z-index: 10;
-      font-size: 12px;
-      line-height: 1.3;
-      max-width: 180px;
-    }
-
-    #instructionsHeader {
-      cursor: pointer;
-      font-weight: bold;
-      color: #64b5f6;
-      margin-bottom: 4px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    #instructionsContent {
-      transition: opacity 0.3s, max-height 0.3s ease-out;
-      overflow: hidden;
-    }
-
-    #instructionsContent.collapsed {
-      opacity: 0;
-      max-height: 0 !important;
-      padding: 0 !important;
-    }
-
     /* 虚拟摇杆 */
     #joystickContainer {
       position: absolute;
@@ -251,8 +173,7 @@
     }
 
     @media (min-width: 769px) {
-      #joystickContainer,
-      #skillPanel.mobile-only {
+      #joystickContainer {
         display: none !important;
       }
     }
@@ -260,26 +181,13 @@
 </head>
 <body>
   <div id="gameContainer">
-    <div id="titleBar">⚔️ 勇者传说 - 100关挑战</div>
+    <div id="titleBar">⚔️ 勇者传说 - 点击攻击</div>
     <canvas id="gameCanvas" width="640" height="480"></canvas>
     <div id="uiPanel">
       ❤️ <span id="hp">100</span>/<span id="maxHp">100</span> |
       ⚔️<span id="atk">5</span> |
       Lv.<span id="level">1</span> |
-      关卡:<span id="stage">1</span>
-    </div>
-
-    <div id="gameInstructions">
-      <div id="instructionsHeader" onclick="toggleInstructions()">
-        说明
-        <span id="toggleIcon">▼</span>
-      </div>
-      <div id="instructionsContent">
-        移动：左摇杆<br>
-        攻击：右下角⚔️<br>
-        Q/E/R：技能<br>
-        击败所有敌人过关！
-      </div>
+      关卡:<span id="stage" onclick="toggleGodMode()">1</span>
     </div>
 
     <button id="pauseButton" onclick="togglePause()">|| 暂停</button>
@@ -290,32 +198,13 @@
       <div id="joystickThumb"></div>
     </div>
 
-    <!-- 移动端技能按钮 -->
-    <div id="skillPanel" class="mobile-only">
-      <div class="skill" id="btnAttackMobile">
-        <div class="skill-key">⚔️</div>
-        <div></div>
-      </div>
-      <div class="skill" id="btnQMobile">
-        <div class="skill-key">Q</div>
-        <div></div>
-      </div>
-      <div class="skill" id="btnEMobile">
-        <div class="skill-key">E</div>
-        <div></div>
-      </div>
-      <div class="skill" id="btnRMobile">
-        <div class="skill-key">R</div>
-        <div></div>
-      </div>
-    </div>
-
     <div id="message">勇者传说</div>
   </div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const gameContainer = document.getElementById('gameContainer');
 
     // 全局状态
     let keys = {};
@@ -334,7 +223,6 @@
       expNeeded: 3,
       attackCooldown: 0,
       flash: 0,
-      shield: 0,
       invincible: false
     };
 
@@ -344,113 +232,53 @@
     let paused = false;
     let spawnIntervalId = null;
 
-    // 虚拟摇杆状态
+    // 无敌模式
+    let godClickCount = 0;
+    let godModeEnabled = false;
+
+    // 虚拟摇杆
     let joystickActive = false;
     let joystickVector = { x: 0, y: 0 };
     let joystickBaseRect = null;
 
-    // 初始化输入监听
+    // 初始化输入
     function setupInput() {
       window.addEventListener('keydown', (e) => {
         keys[e.key.toLowerCase()] = true;
-        if (e.key === ' ') {
-          e.preventDefault();
-          tryAttack();
-        }
-        if (e.key.toLowerCase() === 'q') useSkill('q');
-        if (e.key.toLowerCase() === 'e') useSkill('e');
-        if (e.key.toLowerCase() === 'r') useSkill('r');
+        if (e.key === ' ') tryAttack();
       });
-
       window.addEventListener('keyup', (e) => {
         keys[e.key.toLowerCase()] = false;
       });
+
+      // 👉 点击/触摸整个游戏区域触发攻击
+      gameContainer.addEventListener('click', tryAttack);
+      gameContainer.addEventListener('touchstart', (e) => {
+        // 防止与摇杆冲突：如果点在摇杆区域，不触发攻击
+        const thumb = document.getElementById('joystickThumb');
+        const thumbRect = thumb.getBoundingClientRect();
+        const touch = e.touches[0] || e.changedTouches[0];
+        const inThumb = (
+          touch.clientX >= thumbRect.left &&
+          touch.clientX <= thumbRect.right &&
+          touch.clientY >= thumbRect.top &&
+          touch.clientY <= thumbRect.bottom
+        );
+        if (!inThumb) {
+          e.preventDefault(); // 阻止默认行为（如滚动）
+          tryAttack();
+        }
+      }, { passive: false });
     }
 
     function tryAttack() {
       if (player.attackCooldown <= 0 && !gameOver && !gameWon && !paused) {
-        player.attackCooldown = 20;
+        player.attackCooldown = 10; // 10帧 ≈ 0.17秒（60fps）
         player.flash = 5;
         attack();
       }
     }
 
-    // 技能按钮绑定（PC）
-    function setupSkillButtons() {
-      document.getElementById('btnAttackMobile').addEventListener('click', tryAttack);
-      document.getElementById('btnQMobile').addEventListener('click', () => useSkill('q'));
-      document.getElementById('btnEMobile').addEventListener('click', () => useSkill('e'));
-      document.getElementById('btnRMobile').addEventListener('click', () => useSkill('r'));
-    }
-
-    // 虚拟摇杆初始化
-    function initJoystick() {
-      const base = document.getElementById('joystickBase');
-      const thumb = document.getElementById('joystickThumb');
-      const container = document.getElementById('joystickContainer');
-
-      if (window.innerWidth > 768) {
-        container.style.display = 'none';
-        return;
-      }
-
-      let isDragging = false;
-
-      function getTouchPos(e) {
-        const rect = base.getBoundingClientRect();
-        joystickBaseRect = rect;
-        const touch = e.touches[0] || e.changedTouches[0] || e;
-        return {
-          x: touch.clientX - rect.left,
-          y: touch.clientY - rect.top
-        };
-      }
-
-      function updateJoystick(e) {
-        if (!isDragging) return;
-        const pos = getTouchPos(e);
-        const centerX = joystickBaseRect.width / 2;
-        const centerY = joystickBaseRect.height / 2;
-        let dx = pos.x - centerX;
-        let dy = pos.y - centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const maxDistance = centerX * 0.8;
-
-        if (distance > maxDistance) {
-          dx = (dx / distance) * maxDistance;
-          dy = (dy / distance) * maxDistance;
-        }
-
-        thumb.style.transform = `translate(${dx}px, ${dy}px)`;
-        joystickVector.x = dx / maxDistance;
-        joystickVector.y = dy / maxDistance;
-      }
-
-      function startDrag(e) {
-        e.preventDefault();
-        isDragging = true;
-        joystickActive = true;
-        updateJoystick(e);
-      }
-
-      function endDrag() {
-        isDragging = false;
-        joystickActive = false;
-        joystickVector = { x: 0, y: 0 };
-        thumb.style.transform = 'translate(0, 0)';
-      }
-
-      base.addEventListener('mousedown', startDrag);
-      base.addEventListener('touchstart', startDrag, { passive: false });
-
-      window.addEventListener('mousemove', updateJoystick);
-      window.addEventListener('touchmove', updateJoystick, { passive: false });
-
-      window.addEventListener('mouseup', endDrag);
-      window.addEventListener('touchend', endDrag);
-    }
-
-    // 普通攻击
     function attack() {
       for (let enemy of enemies) {
         const dx = player.x - enemy.x;
@@ -459,63 +287,6 @@
         if (dist < 60) {
           enemy.hp -= player.atk;
           createDamageText(enemy.x, enemy.y, player.atk);
-          if (enemy.hp <= 0) {
-            killEnemy(enemy);
-          }
-        }
-      }
-    }
-
-    // 使用技能
-    function useSkill(skill) {
-      if (paused || gameOver || gameWon) return;
-
-      const now = Date.now();
-      if (skill === 'q' && (player.lastQ === undefined || now - player.lastQ > 5000)) {
-        player.lastQ = now;
-        document.getElementById('btnQMobile').classList.add('cooldown');
-        setTimeout(() => document.getElementById('btnQMobile').classList.remove('cooldown'), 5000);
-
-        for (let enemy of enemies) {
-          const dx = player.x - enemy.x;
-          const dy = player.y - enemy.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 100) {
-            enemy.hp -= 20;
-            createDamageText(enemy.x, enemy.y, 20);
-            if (enemy.hp <= 0) {
-              killEnemy(enemy);
-            }
-          }
-        }
-      }
-
-      if (skill === 'e' && (player.lastE === undefined || now - player.lastE > 8000)) {
-        player.lastE = now;
-        document.getElementById('btnEMobile').classList.add('cooldown');
-        setTimeout(() => document.getElementById('btnEMobile').classList.remove('cooldown'), 8000);
-
-        player.shield = 120;
-        player.invincible = true;
-        setTimeout(() => {
-          player.invincible = false;
-        }, 2000);
-      }
-
-      if (skill === 'r' && (player.lastR === undefined || now - player.lastR > 10000)) {
-        player.lastR = now;
-        document.getElementById('btnRMobile').classList.add('cooldown');
-        setTimeout(() => document.getElementById('btnRMobile').classList.remove('cooldown'), 10000);
-
-        let targets = [...enemies].sort((a, b) => {
-          const da = (a.x - player.x) ** 2 + (a.y - player.y) ** 2;
-          const db = (b.x - player.x) ** 2 + (b.y - player.y) ** 2;
-          return da - db;
-        }).slice(0, 5);
-
-        for (let enemy of targets) {
-          enemy.hp -= 15;
-          createDamageText(enemy.x, enemy.y, 15);
           if (enemy.hp <= 0) {
             killEnemy(enemy);
           }
@@ -629,33 +400,33 @@
     function togglePause() {
       paused = !paused;
       document.getElementById('pauseButton').textContent = paused ? '▶ 继续' : '|| 暂停';
-      if (!paused) {
-        gameLoop();
-      }
+      if (!paused) gameLoop();
     }
 
-    function toggleInstructions() {
-      const content = document.getElementById('instructionsContent');
-      const icon = document.getElementById('toggleIcon');
-      if (content.classList.contains('collapsed')) {
-        content.classList.remove('collapsed');
-        icon.textContent = '▲';
+    // 👑 点击关卡6次开启/关闭无敌
+    function toggleGodMode() {
+      godClickCount++;
+      if (godClickCount >= 6) {
+        godModeEnabled = !godModeEnabled;
+        player.invincible = godModeEnabled;
+        showMessage(godModeEnabled ? "👑 无敌已开启！" : "🛡️ 无敌已关闭", true);
+        setTimeout(() => hideMessage(), 1500);
+        godClickCount = 0;
       } else {
-        content.classList.add('collapsed');
-        icon.textContent = '▼';
+        showMessage(`${godClickCount}/6`, false);
       }
     }
 
     function movePlayer() {
       let dx = 0, dy = 0;
 
-      // 键盘输入
+      // 键盘（PC）
       if (keys['w'] || keys['arrowup']) dy -= player.speed;
       if (keys['s'] || keys['arrowdown']) dy += player.speed;
       if (keys['a'] || keys['arrowleft']) dx -= player.speed;
       if (keys['d'] || keys['arrowright']) dx += player.speed;
 
-      // 虚拟摇杆输入（优先级更高）
+      // 摇杆（移动端）
       if (joystickActive) {
         dx = joystickVector.x * player.speed * 2;
         dy = joystickVector.y * player.speed * 2;
@@ -714,20 +485,11 @@
         ctx.fillStyle = '#ffffff';
         player.flash--;
       } else {
-        ctx.fillStyle = player.shield > 0 ? '#4fc3f7' : '#4caf50';
+        ctx.fillStyle = player.invincible ? '#ffeb3b' : '#4caf50';
       }
       ctx.beginPath();
       ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
       ctx.fill();
-
-      if (player.shield > 0) {
-        ctx.strokeStyle = '#81d4fa';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.size + 8, 0, Math.PI * 2);
-        ctx.stroke();
-        player.shield--;
-      }
 
       // 敌人
       for (let enemy of enemies) {
@@ -765,15 +527,73 @@
       requestAnimationFrame(gameLoop);
     }
 
+    function initJoystick() {
+      if (window.innerWidth > 768) return;
+
+      const base = document.getElementById('joystickBase');
+      const thumb = document.getElementById('joystickThumb');
+
+      let isDragging = false;
+
+      function getTouchPos(e) {
+        const rect = base.getBoundingClientRect();
+        joystickBaseRect = rect;
+        const touch = e.touches[0] || e.changedTouches[0] || e;
+        return {
+          x: touch.clientX - rect.left,
+          y: touch.clientY - rect.top
+        };
+      }
+
+      function updateJoystick(e) {
+        if (!isDragging) return;
+        const pos = getTouchPos(e);
+        const centerX = joystickBaseRect.width / 2;
+        const centerY = joystickBaseRect.height / 2;
+        let dx = pos.x - centerX;
+        let dy = pos.y - centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const maxDistance = centerX * 0.8;
+
+        if (distance > maxDistance) {
+          dx = (dx / distance) * maxDistance;
+          dy = (dy / distance) * maxDistance;
+        }
+
+        thumb.style.transform = `translate(${dx}px, ${dy}px)`;
+        joystickVector.x = dx / maxDistance;
+        joystickVector.y = dy / maxDistance;
+      }
+
+      function startDrag(e) {
+        e.preventDefault();
+        isDragging = true;
+        joystickActive = true;
+        updateJoystick(e);
+      }
+
+      function endDrag() {
+        isDragging = false;
+        joystickActive = false;
+        joystickVector = { x: 0, y: 0 };
+        thumb.style.transform = 'translate(0, 0)';
+      }
+
+      base.addEventListener('mousedown', startDrag);
+      base.addEventListener('touchstart', startDrag, { passive: false });
+      window.addEventListener('mousemove', updateJoystick);
+      window.addEventListener('touchmove', updateJoystick, { passive: false });
+      window.addEventListener('mouseup', endDrag);
+      window.addEventListener('touchend', endDrag);
+    }
+
     function init() {
       startStage(1);
       setupInput();
-      setupSkillButtons();
       initJoystick();
       gameLoop();
-      showMessage("勇者传说 - 100关挑战", true);
+      showMessage("点击任意处攻击 · 摇杆移动", true);
       setTimeout(() => hideMessage(), 2500);
-
       spawnIntervalId = setInterval(spawnRandomMinions, 2000);
     }
 
