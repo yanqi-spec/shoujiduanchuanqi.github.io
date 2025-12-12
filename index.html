@@ -2,602 +2,538 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>勇者传说 - 点击攻击版</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>✨ 连连看 - 5关挑战（难度递增）</title>
   <style>
-    * {
+    body {
+      background: #f5f7fa;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      text-align: center;
+      padding: 20px;
       margin: 0;
+      color: #333;
+    }
+    h2 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    #game-container {
+      position: relative;
+      display: inline-block;
+      margin-top: 10px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #game-board {
+      display: grid;
+      background: transparent;
       padding: 0;
-      box-sizing: border-box;
+      border: none;
+    }
+    .cell {
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .cell.selected {
+      box-shadow: 0 0 0 3px gold;
+    }
+    .cell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 6px;
     }
 
-    body {
-      background: linear-gradient(125deg, #0b0f19, #131c2b, #1a2a40);
+    .cell.removing {
+      animation: removeAnim 0.5s forwards;
+    }
+    @keyframes removeAnim {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.8; }
+      100% { transform: scale(0); opacity: 0; }
+    }
+
+    #score {
+      font-size: 22px;
+      color: #e74c3c;
+      margin: 10px;
+      font-weight: bold;
+    }
+    #level-info {
+      font-size: 18px;
+      color: #2980b9;
+      margin-bottom: 8px;
+    }
+    .buttons-area {
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 8px;
+      transition: all 0.2s;
+      font-weight: 600;
+    }
+    #restart-btn {
+      background: #3498db;
       color: white;
-      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-      display: flex;
+    }
+    #reshuffle-btn {
+      background: #9b59b6;
+      color: white;
+    }
+    #restart-btn:hover:not(:disabled),
+    #reshuffle-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    #reshuffle-btn:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* 精美弹窗 */
+    .popup {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      overflow: hidden;
-      padding: 10px;
-      touch-action: none;
+      animation: fadeIn 0.3s;
     }
-
-    #gameContainer {
-      position: relative;
-      width: min(95vw, 640px);
-      height: min(95vw * 0.75, 480px);
-      max-width: 640px;
-      max-height: 480px;
+    @keyframes fadeIn {
+      from { opacity: 0; } to { opacity: 1; }
+    }
+    .popup-content {
+      background: white;
+      padding: 35px 45px;
       border-radius: 16px;
-      overflow: hidden;
-      box-shadow:
-        0 12px 30px rgba(0, 0, 0, 0.6),
-        inset 0 0 0 1px rgba(100, 150, 255, 0.15);
-      backdrop-filter: blur(2px);
-      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      max-width: 420px;
+      text-align: center;
+      position: relative;
+      transform: scale(0.95);
+      animation: popIn 0.4s forwards;
     }
-
-    #gameCanvas {
-      background: #0d1b2a;
-      image-rendering: pixelated;
+    @keyframes popIn {
+      to { transform: scale(1); }
+    }
+    .close-btn {
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      font-size: 26px;
+      color: #aaa;
+      cursor: pointer;
+      font-weight: normal;
+      transition: color 0.2s;
+    }
+    .close-btn:hover {
+      color: #333;
+    }
+    #popup-message {
+      font-size: 19px;
+      line-height: 1.6;
+      color: #333;
+      font-weight: 500;
+    }
+    .popup-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
       display: block;
-      width: 100%;
-      height: 100%;
     }
 
-    #titleBar {
+    #path-canvas {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      padding: 12px 0;
-      text-align: center;
-      background: rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(6px);
-      font-size: 20px;
-      font-weight: bold;
-      letter-spacing: 2px;
-      color: #64b5f6;
-      z-index: 11;
-      border-bottom: 1px solid rgba(100, 181, 246, 0.2);
-    }
-
-    #uiPanel {
-      position: absolute;
-      top: 42px;
-      left: 12px;
-      background: rgba(15, 23, 42, 0.75);
-      padding: 10px 12px;
-      border-radius: 10px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(100, 150, 255, 0.25);
-      font-size: 14px;
+      top: -20px;
+      left: -20px;
+      pointer-events: none;
       z-index: 10;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-
-    #uiPanel span {
-      font-weight: bold;
-      color: #4fc3f7;
-    }
-
-    #message {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0.9);
-      font-size: 24px;
-      font-weight: 800;
-      text-align: center;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 20;
-      text-shadow:
-        0 0 8px rgba(255, 255, 255, 0.9),
-        0 0 20px gold;
-      color: white;
-      transition: 
-        opacity 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-        transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    .show {
-      opacity: 1 !important;
-      transform: translate(-50%, -50%) scale(1) !important;
-    }
-
-    .damage-text {
-      position: absolute;
-      font-size: 16px;
-      font-weight: bold;
-      color: #ff5252;
-      text-shadow: 0 0 6px rgba(255, 0, 0, 0.8);
-      pointer-events: none;
-      z-index: 15;
-      animation: floatUp 1s forwards;
-    }
-
-    @keyframes floatUp {
-      0% { transform: translateY(0); opacity: 1; }
-      100% { transform: translateY(-40px); opacity: 0; }
-    }
-
-    #pauseButton {
-      position: absolute;
-      bottom: 12px;
-      left: 12px;
-      background-color: rgba(50, 70, 90, 0.8);
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      font-size: 14px;
-      cursor: pointer;
-      user-select: none;
-      border-radius: 8px;
-      z-index: 12;
-    }
-
-    /* 虚拟摇杆 */
-    #joystickContainer {
-      position: absolute;
-      bottom: 12px;
-      left: 12px;
-      width: 100px;
-      height: 100px;
-      z-index: 12;
-      pointer-events: none;
-    }
-
-    #joystickBase {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      background: rgba(50, 80, 130, 0.3);
-      border-radius: 50%;
-      border: 2px solid rgba(100, 180, 255, 0.4);
-      pointer-events: auto;
-    }
-
-    #joystickThumb {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 40px;
-      height: 40px;
-      background: rgba(100, 180, 255, 0.8);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: auto;
-    }
-
-    @media (min-width: 769px) {
-      #joystickContainer {
-        display: none !important;
-      }
     }
   </style>
 </head>
 <body>
-  <div id="gameContainer">
-    <div id="titleBar">⚔️ 勇者传说 - 点击攻击</div>
-    <canvas id="gameCanvas" width="640" height="480"></canvas>
-    <div id="uiPanel">
-      ❤️ <span id="hp">100</span>/<span id="maxHp">100</span> |
-      ⚔️<span id="atk">5</span> |
-      Lv.<span id="level">1</span> |
-      关卡:<span id="stage" onclick="toggleGodMode()">1</span>
+  <h2>✨ 连连看 - 5关挑战（难度递增）</h2>
+  <div id="level-info">第 <span id="current-level">1</span> 关 / 共 5 关</div>
+  <div id="score">剩余图块: 64</div>
+  <div id="game-container">
+    <div id="game-board"></div>
+    <canvas id="path-canvas"></canvas>
+  </div>
+
+  <div class="buttons-area">
+    <button id="restart-btn" onclick="initGame()">🔄 重新开始</button>
+    <button id="reshuffle-btn" onclick="reshuffleBoard()">🔀 重洗牌（<span id="reshuffle-count">2</span> 次）</button>
+  </div>
+
+  <!-- 精美弹窗 -->
+  <div id="popup" class="popup">
+    <div class="popup-content">
+      <span class="close-btn" onclick="closePopup()">&times;</span>
+      <span id="popup-icon" class="popup-icon"></span>
+      <p id="popup-message"></p>
     </div>
-
-    <button id="pauseButton" onclick="togglePause()">|| 暂停</button>
-
-    <!-- 移动端摇杆 -->
-    <div id="joystickContainer">
-      <div id="joystickBase"></div>
-      <div id="joystickThumb"></div>
-    </div>
-
-    <div id="message">勇者传说</div>
   </div>
 
   <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const gameContainer = document.getElementById('gameContainer');
+    // 提供 20 张不同的图片（确保第5关有足够种类）
+    const images = [
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdaa.jpg",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdaf.jpg",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdac.jpg",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdab.jpg",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdae.jpg",
+      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe3f.jpg",
+      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe41.png",
+      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe40.jpg",
+      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe3c.jpg",
+      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe3d.jpg",
+      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feaf.png",
+      "https://pic1.imgdb.cn/item/693a66220edaae20ec55feaa.jpg",
+      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feae.jpg",
+      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feb2.png",
+      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feab.png",
+      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff01.jpg",
+      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff02.png",
+      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff03.jpg",
+      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff04.png",
+      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff05.jpg"
+    ];
 
-    // 全局状态
-    let keys = {};
-    let enemies = [];
-    let damageTexts = [];
-    let player = {
-      x: 320,
-      y: 240,
-      size: 20,
-      speed: 3,
-      hp: 100,
-      maxHp: 100,
-      atk: 5,
-      level: 1,
-      exp: 0,
-      expNeeded: 3,
-      attackCooldown: 0,
-      flash: 0,
-      invincible: false
-    };
+    // 关卡配置：[rows, cols, numTypes]
+    const LEVEL_CONFIG = [
+      [8, 8, 4],   // Level 1
+      [10, 10, 8], // Level 2
+      [10, 12, 12],// Level 3
+      [12, 12, 16],// Level 4
+      [12, 12, 20] // Level 5
+    ];
 
-    let currentStage = 1;
-    let gameOver = false;
-    let gameWon = false;
-    let paused = false;
-    let spawnIntervalId = null;
+    let board = [];
+    let firstSelected = null;
+    let totalTiles = 0;
+    let currentLevel = 1;
+    let reshuffleCount = 2;
+    let ROWS, COLS, CELL_SIZE = 50;
 
-    // 无敌模式
-    let godClickCount = 0;
-    let godModeEnabled = false;
-
-    // 虚拟摇杆
-    let joystickActive = false;
-    let joystickVector = { x: 0, y: 0 };
-    let joystickBaseRect = null;
-
-    // 初始化输入
-    function setupInput() {
-      window.addEventListener('keydown', (e) => {
-        keys[e.key.toLowerCase()] = true;
-        if (e.key === ' ') tryAttack();
-      });
-      window.addEventListener('keyup', (e) => {
-        keys[e.key.toLowerCase()] = false;
-      });
-
-      // 👉 点击/触摸整个游戏区域触发攻击
-      gameContainer.addEventListener('click', tryAttack);
-      gameContainer.addEventListener('touchstart', (e) => {
-        // 防止与摇杆冲突：如果点在摇杆区域，不触发攻击
-        const thumb = document.getElementById('joystickThumb');
-        const thumbRect = thumb.getBoundingClientRect();
-        const touch = e.touches[0] || e.changedTouches[0];
-        const inThumb = (
-          touch.clientX >= thumbRect.left &&
-          touch.clientX <= thumbRect.right &&
-          touch.clientY >= thumbRect.top &&
-          touch.clientY <= thumbRect.bottom
-        );
-        if (!inThumb) {
-          e.preventDefault(); // 阻止默认行为（如滚动）
-          tryAttack();
+    function buildExtendedBoard() {
+      const extRows = ROWS + 2;
+      const extCols = COLS + 2;
+      const ext = Array(extRows).fill().map(() => Array(extCols).fill(-1));
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          ext[r + 1][c + 1] = board[r][c];
         }
-      }, { passive: false });
+      }
+      return ext;
     }
 
-    function tryAttack() {
-      if (player.attackCooldown <= 0 && !gameOver && !gameWon && !paused) {
-        player.attackCooldown = 10; // 10帧 ≈ 0.17秒（60fps）
-        player.flash = 5;
-        attack();
+    function findPathBFS(r1, c1, r2, c2) {
+      const ext = buildExtendedBoard();
+      const startR = r1 + 1, startC = c1 + 1;
+      const endR = r2 + 1, endC = c2 + 1;
+
+      if (ext[startR][startC] === -1 || ext[endR][endC] === -1) return null;
+      if (ext[startR][startC] !== ext[endR][endC]) return null;
+
+      const queue = [{ r: startR, c: startC }];
+      const parent = {};
+      const key = (r, c) => `${r},${c}`;
+      const visited = new Set();
+      visited.add(key(startR, startC));
+
+      const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
+
+      while (queue.length > 0) {
+        const { r, c } = queue.shift();
+
+        if (r === endR && c === endC) {
+          const pathExt = [];
+          let cur = key(r, c);
+          while (cur !== key(startR, startC)) {
+            const [cr, cc] = cur.split(',').map(Number);
+            pathExt.push({ r: cr - 1, c: cc - 1 });
+            cur = parent[cur];
+          }
+          pathExt.push({ r: r1, c: c1 });
+          return pathExt.reverse();
+        }
+
+        for (const [dr, dc] of dirs) {
+          const nr = r + dr;
+          const nc = c + dc;
+
+          if (nr < 0 || nr >= ROWS + 2 || nc < 0 || nc >= COLS + 2) continue;
+          if (visited.has(key(nr, nc))) continue;
+          if (!(nr === endR && nc === endC) && ext[nr][nc] !== -1) continue;
+
+          visited.add(key(nr, nc));
+          parent[key(nr, nc)] = key(r, c);
+          queue.push({ r: nr, c: nc });
+        }
+      }
+      return null;
+    }
+
+    function initGame() {
+      currentLevel = 1;
+      reshuffleCount = 2;
+      document.getElementById("reshuffle-count").textContent = reshuffleCount;
+      document.getElementById("reshuffle-btn").disabled = false;
+      setupLevel(currentLevel);
+    }
+
+    function nextLevel() {
+      if (currentLevel < 5) {
+        currentLevel++;
+        setupLevel(currentLevel);
+      } else {
+        showPopup("🏆 全关通关！<br>你已完成全部 5 关挑战！", "🎉");
       }
     }
 
-    function attack() {
-      for (let enemy of enemies) {
-        const dx = player.x - enemy.x;
-        const dy = player.y - enemy.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 60) {
-          enemy.hp -= player.atk;
-          createDamageText(enemy.x, enemy.y, player.atk);
-          if (enemy.hp <= 0) {
-            killEnemy(enemy);
+    function setupLevel(level) {
+      const config = LEVEL_CONFIG[level - 1];
+      ROWS = config[0];
+      COLS = config[1];
+      const numTypes = config[2];
+
+      document.getElementById("current-level").textContent = level;
+      const total = ROWS * COLS;
+      if (total % 2 !== 0) {
+        console.error("总图块数必须为偶数！");
+        return;
+      }
+
+      // 构造成对图块
+      const pairs = [];
+      for (let i = 0; i < total / 2; i++) {
+        pairs.push(i % numTypes);
+        pairs.push(i % numTypes);
+      }
+
+      // 打乱
+      for (let i = pairs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+      }
+
+      // 初始化 board
+      board = Array(ROWS).fill().map(() => Array(COLS).fill(-1));
+      totalTiles = total;
+      document.getElementById("score").textContent = `剩余图块: ${totalTiles}`;
+
+      const gameBoard = document.getElementById("game-board");
+      gameBoard.innerHTML = "";
+      gameBoard.style.gridTemplateColumns = `repeat(${COLS}, ${CELL_SIZE}px)`;
+      gameBoard.style.gridGap = "2px";
+
+      let idx = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          board[r][c] = pairs[idx++];
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          cell.style.width = `${CELL_SIZE}px`;
+          cell.style.height = `${CELL_SIZE}px`;
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+          const img = document.createElement("img");
+          img.src = images[board[r][c]];
+          img.onerror = () => img.src = "https://via.placeholder.com/" + CELL_SIZE + "?text=?";
+          cell.appendChild(img);
+          cell.addEventListener("click", () => handleCellClick(r, c));
+          gameBoard.appendChild(cell);
+        }
+      }
+
+      // 调整 canvas 尺寸
+      const containerRect = gameBoard.getBoundingClientRect();
+      const canvas = document.getElementById("path-canvas");
+      canvas.width = containerRect.width + 40;
+      canvas.height = containerRect.height + 40;
+
+      firstSelected = null;
+    }
+
+    function reshuffleBoard() {
+      if (reshuffleCount <= 0) return;
+      reshuffleCount--;
+      document.getElementById("reshuffle-count").textContent = reshuffleCount;
+      if (reshuffleCount === 0) {
+        document.getElementById("reshuffle-btn").disabled = true;
+      }
+
+      // 收集所有非空图块
+      const tiles = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (board[r][c] !== -1) {
+            tiles.push(board[r][c]);
           }
         }
       }
-    }
 
-    function createDamageText(x, y, amount) {
-      damageTexts.push({
-        x: x,
-        y: y,
-        text: amount.toString(),
-        life: 60
-      });
-    }
-
-    function killEnemy(enemy) {
-      const index = enemies.indexOf(enemy);
-      if (index !== -1) enemies.splice(index, 1);
-      player.exp += 1;
-      checkLevelUp();
-      checkStageClear();
-    }
-
-    function checkLevelUp() {
-      if (player.exp >= player.expNeeded) {
-        player.level++;
-        player.exp -= player.expNeeded;
-        player.expNeeded = Math.floor(player.expNeeded * 1.5);
-        player.maxHp += 10;
-        player.hp = player.maxHp;
-        player.atk += 2;
-        updateUI();
-        showMessage(`升级！Lv.${player.level}`, true);
+      // 打乱
+      for (let i = tiles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
       }
+
+      // 重新填回
+      let idx = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (board[r][c] !== -1) {
+            board[r][c] = tiles[idx++];
+          }
+        }
+      }
+
+      // 更新 DOM
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (board[r][c] !== -1) {
+            const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+            cell.innerHTML = '';
+            const img = document.createElement("img");
+            img.src = images[board[r][c]];
+            img.onerror = () => img.src = "https://via.placeholder.com/" + CELL_SIZE + "?text=?";
+            cell.appendChild(img);
+          }
+        }
+      }
+
+      resetSelection();
+      showPopup("🎴 牌已重洗！", "🔄");
     }
 
-    function checkStageClear() {
-      if (enemies.length === 0 && !gameWon) {
-        if (currentStage >= 100) {
-          gameWon = true;
-          showMessage("🎉 通关成功！你完成了100关！", true);
-          clearInterval(spawnIntervalId);
+    function handleCellClick(row, col) {
+      if (board[row][col] === -1) return;
+
+      const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+      if (!firstSelected) {
+        firstSelected = { row, col };
+        cell.classList.add("selected");
+      } else {
+        if (firstSelected.row === row && firstSelected.col === col) {
+          cell.classList.remove("selected");
+          firstSelected = null;
           return;
         }
-        currentStage++;
-        startStage(currentStage);
-        showMessage(`第 ${currentStage} 关`, true);
-      }
-    }
 
-    function startStage(stage) {
-      enemies = [];
-      const count = Math.min(5 + Math.floor(stage / 5), 20);
-      for (let i = 0; i < count; i++) {
-        let x, y;
-        do {
-          x = Math.random() * (canvas.width - 40) + 20;
-          y = Math.random() * (canvas.height - 40) + 20;
-        } while (Math.hypot(x - player.x, y - player.y) < 100);
-        enemies.push({
-          x: x,
-          y: y,
-          size: 15 + Math.random() * 10,
-          hp: 10 + Math.floor(stage / 3),
-          maxHp: 10 + Math.floor(stage / 3),
-          speed: 0.5 + Math.random() * 0.5,
-          color: `hsl(${200 + stage * 2 % 360}, 70%, 60%)`
-        });
-      }
-      updateUI();
-    }
-
-    function spawnRandomMinions() {
-      if (enemies.length < 30 && !gameOver && !gameWon && !paused) {
-        let x = Math.random() < 0.5 ? -20 : canvas.width + 20;
-        let y = Math.random() * canvas.height;
-        enemies.push({
-          x: x,
-          y: y,
-          size: 15,
-          hp: 10,
-          maxHp: 10,
-          speed: 1,
-          color: '#f44336'
-        });
-      }
-    }
-
-    function updateUI() {
-      document.getElementById('hp').textContent = player.hp;
-      document.getElementById('maxHp').textContent = player.maxHp;
-      document.getElementById('atk').textContent = player.atk;
-      document.getElementById('level').textContent = player.level;
-      document.getElementById('stage').textContent = currentStage;
-    }
-
-    function showMessage(text, permanent = false) {
-      const msg = document.getElementById('message');
-      msg.textContent = text;
-      msg.classList.add('show');
-      if (!permanent) {
-        setTimeout(() => hideMessage(), 2000);
-      }
-    }
-
-    function hideMessage() {
-      document.getElementById('message').classList.remove('show');
-    }
-
-    function togglePause() {
-      paused = !paused;
-      document.getElementById('pauseButton').textContent = paused ? '▶ 继续' : '|| 暂停';
-      if (!paused) gameLoop();
-    }
-
-    // 👑 点击关卡6次开启/关闭无敌
-    function toggleGodMode() {
-      godClickCount++;
-      if (godClickCount >= 6) {
-        godModeEnabled = !godModeEnabled;
-        player.invincible = godModeEnabled;
-        showMessage(godModeEnabled ? "👑 无敌已开启！" : "🛡️ 无敌已关闭", true);
-        setTimeout(() => hideMessage(), 1500);
-        godClickCount = 0;
-      } else {
-        showMessage(`${godClickCount}/6`, false);
-      }
-    }
-
-    function movePlayer() {
-      let dx = 0, dy = 0;
-
-      // 键盘（PC）
-      if (keys['w'] || keys['arrowup']) dy -= player.speed;
-      if (keys['s'] || keys['arrowdown']) dy += player.speed;
-      if (keys['a'] || keys['arrowleft']) dx -= player.speed;
-      if (keys['d'] || keys['arrowright']) dx += player.speed;
-
-      // 摇杆（移动端）
-      if (joystickActive) {
-        dx = joystickVector.x * player.speed * 2;
-        dy = joystickVector.y * player.speed * 2;
-      }
-
-      if (dx !== 0 && dy !== 0) {
-        const factor = 0.7071;
-        dx *= factor;
-        dy *= factor;
-      }
-
-      player.x += dx;
-      player.y += dy;
-
-      player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
-      player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
-    }
-
-    function updateEnemies() {
-      for (let enemy of enemies) {
-        const dx = player.x - enemy.x;
-        const dy = player.y - enemy.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 0) {
-          enemy.x += (dx / dist) * enemy.speed;
-          enemy.y += (dy / dist) * enemy.speed;
+        if (board[firstSelected.row][firstSelected.col] !== board[row][col]) {
+          showPopup("❌ 图标不同！", "⚠️");
+          resetSelection();
+          return;
         }
 
-        if (dist < player.size + enemy.size && !player.invincible) {
-          player.hp -= 0.5;
-          if (player.hp <= 0) {
-            player.hp = 0;
-            gameOver = true;
-            showMessage("💀 游戏结束", true);
-            clearInterval(spawnIntervalId);
-          }
+        const path = findPathBFS(firstSelected.row, firstSelected.col, row, col);
+
+        if (path) {
+          const r1 = firstSelected.row, c1 = firstSelected.col;
+          const r2 = row, c2 = col;
+
+          const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
+          const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
+          cell1.classList.add("removing");
+          cell2.classList.add("removing");
+
+          setTimeout(() => {
+            cell1.innerHTML = '';
+            cell2.innerHTML = '';
+            board[r1][c1] = -1;
+            board[r2][c2] = -1;
+            totalTiles -= 2;
+            document.getElementById("score").textContent = `剩余图块: ${totalTiles}`;
+          }, 500);
+
+          drawPathOnCanvas(path, () => {
+            if (totalTiles === 0) {
+              setTimeout(() => {
+                if (currentLevel < 5) {
+                  showPopup(`✅ 第 ${currentLevel} 关完成！<br>即将进入第 ${currentLevel + 1} 关...`, "🎉");
+                  setTimeout(nextLevel, 1500);
+                } else {
+                  showPopup("🎉 恭喜完成第 5 关！", "🏆");
+                }
+              }, 300);
+            }
+          });
+
+        } else {
+          showPopup("❌ 无法连接！<br>必须存在一条通过空白格的中心路径！", "⚠️");
         }
+        resetSelection();
       }
     }
 
-    function updateDamageTexts() {
-      for (let i = damageTexts.length - 1; i >= 0; i--) {
-        damageTexts[i].life--;
-        damageTexts[i].y -= 1;
-        if (damageTexts[i].life <= 0) {
-          damageTexts.splice(i, 1);
-        }
-      }
-    }
-
-    function render() {
+    function drawPathOnCanvas(path, onComplete) {
+      const canvas = document.getElementById("path-canvas");
+      const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 玩家
-      if (player.flash > 0) {
-        ctx.fillStyle = '#ffffff';
-        player.flash--;
-      } else {
-        ctx.fillStyle = player.invincible ? '#ffeb3b' : '#4caf50';
-      }
+      const points = path.map(p => ({
+        x: p.c * (CELL_SIZE + 2) + CELL_SIZE / 2 + 20,
+        y: p.r * (CELL_SIZE + 2) + CELL_SIZE / 2 + 20
+      }));
+
+      ctx.strokeStyle = "#ff3b30";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 敌人
-      for (let enemy of enemies) {
-        ctx.fillStyle = enemy.color;
-        ctx.beginPath();
-        ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
-        ctx.fill();
-
-        const barWidth = enemy.size * 2;
-        const ratio = enemy.hp / enemy.maxHp;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(enemy.x - barWidth / 2, enemy.y - enemy.size - 10, barWidth, 4);
-        ctx.fillStyle = ratio > 0.5 ? '#4caf50' : ratio > 0.25 ? '#ff9800' : '#f44336';
-        ctx.fillRect(enemy.x - barWidth / 2, enemy.y - enemy.size - 10, barWidth * ratio, 4);
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
       }
+      ctx.stroke();
 
-      // 伤害数字
-      ctx.fillStyle = '#ff5252';
-      ctx.font = 'bold 16px Arial';
-      ctx.textAlign = 'center';
-      for (let dt of damageTexts) {
-        ctx.fillText(dt.text, dt.x, dt.y);
+      setTimeout(() => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (onComplete) onComplete();
+      }, 700);
+    }
+
+    function resetSelection() {
+      if (firstSelected) {
+        document.querySelector(`.cell[data-row="${firstSelected.row}"][data-col="${firstSelected.col}"]`)
+          ?.classList.remove("selected");
+        firstSelected = null;
       }
     }
 
-    function gameLoop() {
-      if (paused || gameOver || gameWon) return;
-
-      movePlayer();
-      if (player.attackCooldown > 0) player.attackCooldown--;
-      updateEnemies();
-      updateDamageTexts();
-      render();
-
-      requestAnimationFrame(gameLoop);
+    function showPopup(message, icon = "ℹ️") {
+      document.getElementById("popup-icon").textContent = icon;
+      document.getElementById("popup-message").innerHTML = message.replace(/\n/g, "<br>");
+      document.getElementById("popup").style.display = "flex";
     }
 
-    function initJoystick() {
-      if (window.innerWidth > 768) return;
-
-      const base = document.getElementById('joystickBase');
-      const thumb = document.getElementById('joystickThumb');
-
-      let isDragging = false;
-
-      function getTouchPos(e) {
-        const rect = base.getBoundingClientRect();
-        joystickBaseRect = rect;
-        const touch = e.touches[0] || e.changedTouches[0] || e;
-        return {
-          x: touch.clientX - rect.left,
-          y: touch.clientY - rect.top
-        };
-      }
-
-      function updateJoystick(e) {
-        if (!isDragging) return;
-        const pos = getTouchPos(e);
-        const centerX = joystickBaseRect.width / 2;
-        const centerY = joystickBaseRect.height / 2;
-        let dx = pos.x - centerX;
-        let dy = pos.y - centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const maxDistance = centerX * 0.8;
-
-        if (distance > maxDistance) {
-          dx = (dx / distance) * maxDistance;
-          dy = (dy / distance) * maxDistance;
-        }
-
-        thumb.style.transform = `translate(${dx}px, ${dy}px)`;
-        joystickVector.x = dx / maxDistance;
-        joystickVector.y = dy / maxDistance;
-      }
-
-      function startDrag(e) {
-        e.preventDefault();
-        isDragging = true;
-        joystickActive = true;
-        updateJoystick(e);
-      }
-
-      function endDrag() {
-        isDragging = false;
-        joystickActive = false;
-        joystickVector = { x: 0, y: 0 };
-        thumb.style.transform = 'translate(0, 0)';
-      }
-
-      base.addEventListener('mousedown', startDrag);
-      base.addEventListener('touchstart', startDrag, { passive: false });
-      window.addEventListener('mousemove', updateJoystick);
-      window.addEventListener('touchmove', updateJoystick, { passive: false });
-      window.addEventListener('mouseup', endDrag);
-      window.addEventListener('touchend', endDrag);
+    function closePopup() {
+      document.getElementById("popup").style.display = "none";
     }
 
-    function init() {
-      startStage(1);
-      setupInput();
-      initJoystick();
-      gameLoop();
-      showMessage("点击任意处攻击 · 摇杆移动", true);
-      setTimeout(() => hideMessage(), 2500);
-      spawnIntervalId = setInterval(spawnRandomMinions, 2000);
-    }
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closePopup();
+    });
 
-    window.onload = init;
+    window.onload = initGame;
   </script>
 </body>
 </html>
