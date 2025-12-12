@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✨ 连连看 - 5关挑战（难度递增）</title>
+  <title>✨ 连连看 - </title>
   <style>
     body {
       background: #f5f7fa;
@@ -12,6 +12,7 @@
       padding: 20px;
       margin: 0;
       color: #333;
+      position: relative;
     }
     h2 {
       color: #2c3e50;
@@ -42,7 +43,8 @@
       transition: transform 0.3s ease, opacity 0.3s ease;
     }
     .cell.selected {
-      box-shadow: 0 0 0 3px gold;
+      box-shadow: 0 0 0 4px gold;
+      transform: scale(1.02);
     }
     .cell img {
       width: 100%;
@@ -52,7 +54,8 @@
     }
 
     .cell.removing {
-      animation: removeAnim 0.5s forwards;
+      /* 消除动画从500ms缩短到200ms */
+      animation: removeAnim 0.2s forwards;
     }
     @keyframes removeAnim {
       0% { transform: scale(1); opacity: 1; }
@@ -92,8 +95,13 @@
       background: #9b59b6;
       color: white;
     }
+    #save-btn {
+      background: #2ecc71;
+      color: white;
+    }
     #restart-btn:hover:not(:disabled),
-    #reshuffle-btn:hover:not(:disabled) {
+    #reshuffle-btn:hover:not(:disabled),
+    #save-btn:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
@@ -162,16 +170,104 @@
 
     #path-canvas {
       position: absolute;
-      top: -20px;
-      left: -20px;
+      top: 0;
+      left: 0;
       pointer-events: none;
-      z-index: 10;
+      z-index: 999;
+    }
+
+    /* 变态模式提示 */
+    #cheat-indicator {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: #ff6b6b;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: bold;
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    /* 变态模式专属按钮 */
+    .cheat-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #e74c3c;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      display: none;
+      z-index: 999;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .cheat-btn:hover {
+      transform: scale(1.05);
+    }
+    #cheat-win-btn {
+      right: 20px;
+    }
+    #cheat-explode-btn {
+      right: 130px;
+    }
+
+    /* 底部致谢栏 - 徐小龙悬停图片样式 */
+    #footer-credit {
+      margin-top: 40px;
+      padding: 12px 0;
+      font-size: 18px;
+      font-weight: bold;
+      color: #d35400;
+      position: relative;
+      display: inline-block;
+    }
+
+    #xu-xl {
+      color: #e67e22;
+      text-decoration: underline;
+      cursor: pointer;
+      position: relative;
+    }
+
+    /* 悬停弹出图片样式 - 180px大小，从左侧滑出 */
+    #xu-xl::before {
+      content: "";
+      position: fixed;
+      left: -180px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 180px;
+      height: 180px;
+      background-image: url('https://pic1.imgdb.cn/item/693bcd4c4b78e65d2a116ff7.png');
+      background-size: cover;
+      background-position: center;
+      border-radius: 8px;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.4s ease;
+      z-index: 9999;
+    }
+
+    #xu-xl:hover::before {
+      left: 0;
+      opacity: 1;
+      visibility: visible;
     }
   </style>
 </head>
 <body>
-  <h2>✨ 连连看 - 5关挑战（难度递增）</h2>
-  <div id="level-info">第 <span id="current-level">1</span> 关 / 共 5 关</div>
+  <h2>✨ 连连看 - </h2>
+  <div id="cheat-indicator">🕶 变态模式 ON</div>
+  <div id="level-info">第 <span id="current-level">1</span> 关 / 共 15 关</div>
   <div id="score">剩余图块: 64</div>
   <div id="game-container">
     <div id="game-board"></div>
@@ -181,7 +277,12 @@
   <div class="buttons-area">
     <button id="restart-btn" onclick="initGame()">🔄 重新开始</button>
     <button id="reshuffle-btn" onclick="reshuffleBoard()">🔀 重洗牌（<span id="reshuffle-count">2</span> 次）</button>
+    <button id="save-btn" onclick="saveProgressAndNotify()">💾 保存进度</button>
   </div>
+
+  <!-- 变态模式专属按钮 -->
+  <button id="cheat-win-btn" class="cheat-btn" onclick="cheatWinLevel()">🚀 一键过关</button>
+  <button id="cheat-explode-btn" class="cheat-btn" onclick="cheatExplodeAll()">💣 全屏爆炸消除</button>
 
   <!-- 精美弹窗 -->
   <div id="popup" class="popup">
@@ -192,47 +293,170 @@
     </div>
   </div>
 
+  <!-- 底部致谢 -->
+  <div id="footer-credit">
+    特此感谢图片赞助 <span id="xu-xl">徐小龙</span>
+  </div>
+
   <script>
-    // 提供 20 张不同的图片（确保第5关有足够种类）
+    // 用户提供的32张图片列表（已替换指定链接）
     const images = [
-      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdaa.jpg",
-      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdaf.jpg",
-      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdac.jpg",
-      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdab.jpg",
-      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdae.jpg",
-      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe3f.jpg",
-      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe41.png",
-      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe40.jpg",
+      "https://pic1.imgdb.cn/item/693bd29542271a4090912e99.jpg",
+      "https://pic1.imgdb.cn/item/693bd29542271a4090912e9a.png",
+      "https://pic1.imgdb.cn/item/693bd28942271a4090912e92.jpg",
+      "https://pic1.imgdb.cn/item/693bd28942271a4090912e93.jpg",
+      "https://pic1.imgdb.cn/item/693bd28942271a4090912e94.jpg",
+      "https://pic1.imgdb.cn/item/693bd28942271a4090912e95.jpg",
+      "https://pic1.imgdb.cn/item/693bd28942271a4090912e96.jpg",
+      "https://pic1.imgdb.cn/item/693bd28042271a4090912e8b.jpg",
+      "https://pic1.imgdb.cn/item/693bd28042271a4090912e8c.jpg",
+      "https://pic1.imgdb.cn/item/693bd28042271a4090912e8d.jpg",
+      "https://pic1.imgdb.cn/item/693bd28042271a4090912e8e.jpg",
+      "https://pic1.imgdb.cn/item/693bd28042271a4090912e8f.jpg",
+      "https://pic1.imgdb.cn/item/693bd26f42271a4090912e7f.jpg",
+      "https://pic1.imgdb.cn/item/693bd26f42271a4090912e80.jpg",
+      "https://pic1.imgdb.cn/item/693bd26f42271a4090912e81.jpg",
+      "https://pic1.imgdb.cn/item/693bd26f42271a4090912e82.jpg",
+      "https://pic1.imgdb.cn/item/693bd26f42271a4090912e83.jpg",
+      "https://pic1.imgdb.cn/item/6939122b6166b8110132922a.jpg", // 替换原693bcd4c4b78e65d2a116ff7.png链接
+      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feab.png",
+      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feae.jpg",
+      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feaf.png",
+      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feb2.png",
+      "https://pic1.imgdb.cn/item/693a66220edaae20ec55feaa.jpg",
       "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe3c.jpg",
       "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe3d.jpg",
-      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feaf.png",
-      "https://pic1.imgdb.cn/item/693a66220edaae20ec55feaa.jpg",
-      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feae.jpg",
-      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feb2.png",
-      "https://pic1.imgdb.cn/item/693a66230edaae20ec55feab.png",
-      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff01.jpg",
-      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff02.png",
-      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff03.jpg",
-      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff04.png",
-      "https://pic1.imgdb.cn/item/693a66240edaae20ec55ff05.jpg"
+      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe3f.jpg",
+      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe40.jpg",
+      "https://pic1.imgdb.cn/item/693a66170edaae20ec55fe41.png",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdaa.jpg",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdab.jpg",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdac.jpg",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdae.jpg",
+      "https://pic1.imgdb.cn/item/693a66060edaae20ec55fdaf.jpg"
     ];
 
-    // 关卡配置：[rows, cols, numTypes]
+    // 15关配置 [行数, 列数, 使用图片类型数] - 确保每关都有足够图片且无空白
     const LEVEL_CONFIG = [
-      [8, 8, 4],   // Level 1
-      [10, 10, 8], // Level 2
-      [10, 12, 12],// Level 3
-      [12, 12, 16],// Level 4
-      [12, 12, 20] // Level 5
+      [8, 8, 8],     // 1关：8x8，8种图
+      [10, 10, 10],  // 2关：10x10，10种图
+      [10, 12, 12],  // 3关：10x12，12种图
+      [12, 12, 14],  // 4关：12x12，14种图
+      [12, 12, 16],  // 5关：12x12，16种图（修复空白）
+      [12, 14, 18],  // 6关：12x14，18种图
+      [14, 14, 20],  // 7关：14x14，20种图
+      [14, 16, 22],  // 8关：14x16，22种图
+      [16, 16, 24],  // 9关：16x16，24种图
+      [16, 18, 26],  // 10关：16x18，26种图
+      [18, 18, 28],  // 11关：18x18，28种图
+      [18, 20, 30],  // 12关：18x20，30种图
+      [20, 20, 32],  // 13关：20x20，32种图（全部）
+      [20, 22, 32],  // 14关：20x22，32种图（全部）
+      [22, 22, 32]   // 15关：22x22，32种图（全部）
     ];
 
-    let board = [];
+    // 全局游戏状态变量
+    let board = [];          // 棋盘数据（存储每个单元格的图片索引，-1表示已消除）
+    let boardLayout = [];    // 记录棋盘初始布局（用于重洗牌和恢复进度）
     let firstSelected = null;
     let totalTiles = 0;
     let currentLevel = 1;
     let reshuffleCount = 2;
     let ROWS, COLS, CELL_SIZE = 50;
 
+    // ========================
+    // 💥 隐藏变态模式控制
+    // ========================
+    let CHEAT_MODE = false;
+    let sixPressCount = 0;
+    let lastSixTime = 0;
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '6') {
+        const now = Date.now();
+        if (now - lastSixTime > 1500) {
+          sixPressCount = 0; // 超过1.5秒重置
+        }
+        sixPressCount++;
+        lastSixTime = now;
+
+        if (sixPressCount >= 6) {
+          CHEAT_MODE = !CHEAT_MODE;
+          document.getElementById('cheat-indicator').style.display = CHEAT_MODE ? 'block' : 'none';
+          
+          // 控制两个作弊按钮显示
+          document.getElementById('cheat-win-btn').style.display = CHEAT_MODE ? 'block' : 'none';
+          document.getElementById('cheat-explode-btn').style.display = CHEAT_MODE ? 'block' : 'none';
+          
+          showPopup(CHEAT_MODE ? '😎 变态模式已开启！\n任意相同图标可消除！' : '😐 变态模式已关闭。', CHEAT_MODE ? '🕶' : '🔒');
+          sixPressCount = 0;
+        }
+      }
+    });
+
+    // ========================
+    // ✅ 进度保存与加载功能（增强版）
+    // ========================
+    function saveProgress() {
+      // 构建完整的保存数据对象
+      const saveData = {
+        level: currentLevel,               // 当前关卡
+        reshuffleCount: reshuffleCount,    // 剩余重洗牌次数
+        totalTiles: totalTiles,            // 剩余图块数
+        board: JSON.parse(JSON.stringify(board)), // 棋盘状态（已消除的图片标记）
+        boardLayout: JSON.parse(JSON.stringify(boardLayout)), // 棋盘初始布局
+        cellSize: CELL_SIZE,               // 单元格尺寸
+        rows: ROWS,                        // 行数
+        cols: COLS                         // 列数
+      };
+      
+      // 保存到localStorage
+      localStorage.setItem('lianliankan_progress_v2', JSON.stringify(saveData));
+    }
+
+    function loadProgress() {
+      const saved = localStorage.getItem('lianliankan_progress_v2');
+      if (saved) {
+        try {
+          const saveData = JSON.parse(saved);
+          
+          // 验证保存数据的完整性
+          if (saveData.level >= 1 && saveData.level <= 15 && 
+              saveData.board && Array.isArray(saveData.board) &&
+              saveData.boardLayout && Array.isArray(saveData.boardLayout)) {
+            
+            // 恢复所有游戏状态
+            currentLevel = saveData.level;
+            reshuffleCount = saveData.reshuffleCount || 2;
+            totalTiles = saveData.totalTiles;
+            board = saveData.board;
+            boardLayout = saveData.boardLayout;
+            CELL_SIZE = saveData.cellSize || 50;
+            ROWS = saveData.rows || LEVEL_CONFIG[currentLevel - 1][0];
+            COLS = saveData.cols || LEVEL_CONFIG[currentLevel - 1][1];
+            
+            // 更新UI显示
+            document.getElementById('current-level').textContent = currentLevel;
+            document.getElementById('reshuffle-count').textContent = reshuffleCount;
+            document.getElementById('score').textContent = `剩余图块: ${totalTiles}`;
+            
+            return true;
+          }
+        } catch (e) {
+          console.warn("进度加载失败", e);
+        }
+      }
+      return false;
+    }
+
+    function saveProgressAndNotify() {
+      saveProgress();
+      showPopup("✅ 进度保存成功！<br>已保存当前关卡和已消除图片状态。", "💾");
+    }
+
+    // ========================
+    // 核心游戏逻辑 - 修复路径检测
+    // ========================
     function buildExtendedBoard() {
       const extRows = ROWS + 2;
       const extCols = COLS + 2;
@@ -245,67 +469,118 @@
       return ext;
     }
 
+    // 修复后的路径检测算法（简化且更宽松）
     function findPathBFS(r1, c1, r2, c2) {
+      // 先判断是否是同一个单元格
+      if (r1 === r2 && c1 === c2) return null;
+      
+      // 先判断是否都是未消除状态且图片相同（外层已判断，这里做兜底）
+      if (board[r1][c1] === -1 || board[r2][c2] === -1 || board[r1][c1] !== board[r2][c2]) {
+        return null;
+      }
+
       const ext = buildExtendedBoard();
-      const startR = r1 + 1, startC = c1 + 1;
-      const endR = r2 + 1, endC = c2 + 1;
+      const startR = r1 + 1;
+      const startC = c1 + 1;
+      const endR = r2 + 1;
+      const endC = c2 + 1;
 
-      if (ext[startR][startC] === -1 || ext[endR][endC] === -1) return null;
-      if (ext[startR][startC] !== ext[endR][endC]) return null;
-
-      const queue = [{ r: startR, c: startC }];
-      const parent = {};
-      const key = (r, c) => `${r},${c}`;
+      // BFS队列：{r: 行, c: 列, path: 路径数组, turns: 转弯次数}
+      const queue = [{ r: startR, c: startC, path: [], turns: 0 }];
       const visited = new Set();
-      visited.add(key(startR, startC));
+      visited.add(`${startR},${startC}`);
 
-      const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
+      // 四个方向：上、右、下、左
+      const dirs = [[-1, 0], [0, 1], [1, 0], [0, -1]];
 
       while (queue.length > 0) {
-        const { r, c } = queue.shift();
+        const { r, c, path, turns } = queue.shift();
 
+        // 到达终点，返回路径
         if (r === endR && c === endC) {
-          const pathExt = [];
-          let cur = key(r, c);
-          while (cur !== key(startR, startC)) {
-            const [cr, cc] = cur.split(',').map(Number);
-            pathExt.push({ r: cr - 1, c: cc - 1 });
-            cur = parent[cur];
-          }
-          pathExt.push({ r: r1, c: c1 });
-          return pathExt.reverse();
+          return path;
         }
+
+        // 转弯次数超过2次则跳过（连连看规则：最多2次转弯）
+        if (turns > 2) continue;
 
         for (const [dr, dc] of dirs) {
-          const nr = r + dr;
-          const nc = c + dc;
+          let nr = r + dr;
+          let nc = c + dc;
+          let newTurns = turns;
+          
+          // 判断是否转弯（路径最后一个方向和当前方向不同）
+          if (path.length > 0) {
+            const lastStep = path[path.length - 1];
+            const lastDr = lastStep.r - (path.length >= 2 ? path[path.length - 2].r : r - 1);
+            const lastDc = lastStep.c - (path.length >= 2 ? path[path.length - 2].c : c - 1);
+            if (dr !== lastDr || dc !== lastDc) {
+              newTurns++;
+            }
+          }
 
-          if (nr < 0 || nr >= ROWS + 2 || nc < 0 || nc >= COLS + 2) continue;
-          if (visited.has(key(nr, nc))) continue;
-          if (!(nr === endR && nc === endC) && ext[nr][nc] !== -1) continue;
+          // 沿当前方向一直走，直到边界或障碍物
+          while (nr >= 0 && nr < ext.length && nc >= 0 && nc < ext[0].length) {
+            const key = `${nr},${nc}`;
+            
+            // 到达终点
+            if (nr === endR && nc === endC) {
+              const newPath = [...path, { r: nr - 1, c: nc - 1 }];
+              return newPath;
+            }
 
-          visited.add(key(nr, nc));
-          parent[key(nr, nc)] = key(r, c);
-          queue.push({ r: nr, c: nc });
+            // 遇到障碍物（非空且不是终点）
+            if (ext[nr][nc] !== -1) {
+              break;
+            }
+
+            // 未访问过且转弯次数不超过2次
+            if (!visited.has(key) && newTurns <= 2) {
+              visited.add(key);
+              queue.push({
+                r: nr,
+                c: nc,
+                path: [...path, { r: nr - 1, c: nc - 1 }],
+                turns: newTurns
+              });
+            }
+
+            // 继续沿当前方向前进
+            nr += dr;
+            nc += dc;
+          }
         }
       }
+
       return null;
     }
 
-    function initGame() {
-      currentLevel = 1;
-      reshuffleCount = 2;
-      document.getElementById("reshuffle-count").textContent = reshuffleCount;
-      document.getElementById("reshuffle-btn").disabled = false;
+    function initGame(resetProgress = true) {
+      if (resetProgress) {
+        // 重置所有游戏状态
+        currentLevel = 1;
+        reshuffleCount = 2;
+        totalTiles = 0;
+        board = [];
+        boardLayout = [];
+        localStorage.removeItem('lianliankan_progress_v2');
+        
+        // 更新UI显示
+        document.getElementById('current-level').textContent = 1;
+        document.getElementById('reshuffle-count').textContent = 2;
+      }
       setupLevel(currentLevel);
     }
 
     function nextLevel() {
-      if (currentLevel < 5) {
+      if (currentLevel < 15) {
         currentLevel++;
+        reshuffleCount = 2; // 新关卡重置重洗牌次数
+        boardLayout = [];   // 清空布局记录
+        saveProgress();     // 保存新关卡初始状态
         setupLevel(currentLevel);
       } else {
-        showPopup("🏆 全关通关！<br>你已完成全部 5 关挑战！", "🎉");
+        showPopup("🏆 恭喜你！<br>已完成全部15关挑战！", "🎉");
       }
     }
 
@@ -315,225 +590,498 @@
       COLS = config[1];
       const numTypes = config[2];
 
-      document.getElementById("current-level").textContent = level;
-      const total = ROWS * COLS;
-      if (total % 2 !== 0) {
-        console.error("总图块数必须为偶数！");
-        return;
+      // 根据关卡动态调整单元格大小
+      if (level <= 5) CELL_SIZE = 50;
+      else if (level <= 10) CELL_SIZE = 45;
+      else CELL_SIZE = 40;
+
+      // 更新UI显示
+      document.getElementById('current-level').textContent = level;
+      document.getElementById('reshuffle-count').textContent = reshuffleCount;
+
+      // 如果没有保存的布局，生成新布局
+      if (boardLayout.length === 0) {
+        const total = ROWS * COLS;
+        const pairs = [];
+        const pairCount = Math.floor(total / 2);
+        
+        // 生成图片配对（确保是偶数个）
+        for (let i = 0; i < pairCount; i++) {
+          const imgIdx = i % numTypes;
+          pairs.push(imgIdx);
+          pairs.push(imgIdx);
+        }
+        
+        // 洗牌
+        for (let i = pairs.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+        }
+        
+        // 构建棋盘布局
+        boardLayout = Array(ROWS).fill().map(() => []);
+        let idx = 0;
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if (idx < pairs.length) {
+              boardLayout[r][c] = pairs[idx++];
+            } else {
+              boardLayout[r][c] = -1;
+            }
+          }
+        }
+        
+        // 初始化棋盘状态（未消除任何图片）
+        board = JSON.parse(JSON.stringify(boardLayout));
+        totalTiles = pairs.length; // 修复：使用实际配对数，避免奇数问题
+      } else {
+        // 使用保存的布局恢复棋盘
+        board = JSON.parse(JSON.stringify(board));
       }
 
-      // 构造成对图块
-      const pairs = [];
-      for (let i = 0; i < total / 2; i++) {
-        pairs.push(i % numTypes);
-        pairs.push(i % numTypes);
-      }
+      // 更新剩余图块显示
+      document.getElementById('score').textContent = `剩余图块: ${totalTiles}`;
 
-      // 打乱
-      for (let i = pairs.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
-      }
-
-      // 初始化 board
-      board = Array(ROWS).fill().map(() => Array(COLS).fill(-1));
-      totalTiles = total;
-      document.getElementById("score").textContent = `剩余图块: ${totalTiles}`;
-
-      const gameBoard = document.getElementById("game-board");
+      // 渲染游戏棋盘
+      const gameBoard = document.getElementById('game-board');
       gameBoard.innerHTML = "";
       gameBoard.style.gridTemplateColumns = `repeat(${COLS}, ${CELL_SIZE}px)`;
       gameBoard.style.gridGap = "2px";
 
-      let idx = 0;
+      // 渲染每个单元格
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          board[r][c] = pairs[idx++];
-          const cell = document.createElement("div");
-          cell.className = "cell";
+          const cell = document.createElement('div');
+          cell.className = 'cell';
           cell.style.width = `${CELL_SIZE}px`;
           cell.style.height = `${CELL_SIZE}px`;
           cell.dataset.row = r;
           cell.dataset.col = c;
-          const img = document.createElement("img");
-          img.src = images[board[r][c]];
-          img.onerror = () => img.src = "https://via.placeholder.com/" + CELL_SIZE + "?text=?";
-          cell.appendChild(img);
-          cell.addEventListener("click", () => handleCellClick(r, c));
+
+          // 如果单元格未消除，添加图片
+          if (board[r][c] !== -1 && board[r][c] < images.length) {
+            const img = document.createElement('img');
+            img.src = images[board[r][c]];
+            img.onerror = () => {
+              img.src = images[0];
+            };
+            cell.appendChild(img);
+          } else {
+            // 已消除的单元格设置透明背景
+            cell.style.opacity = 0;
+            cell.style.pointerEvents = 'none';
+          }
+
+          // 添加点击事件
+          cell.addEventListener('click', () => handleCellClick(r, c));
           gameBoard.appendChild(cell);
         }
       }
 
-      // 调整 canvas 尺寸
+      // 设置路径画布尺寸（修复定位）
       const containerRect = gameBoard.getBoundingClientRect();
-      const canvas = document.getElementById("path-canvas");
-      canvas.width = containerRect.width + 40;
-      canvas.height = containerRect.height + 40;
+      const canvas = document.getElementById('path-canvas');
+      canvas.width = containerRect.width;
+      canvas.height = containerRect.height;
+      canvas.style.width = `${containerRect.width}px`;
+      canvas.style.height = `${containerRect.height}px`;
 
       firstSelected = null;
+      saveProgress(); // 保存当前关卡初始状态
     }
 
     function reshuffleBoard() {
-      if (reshuffleCount <= 0) return;
+      if (reshuffleCount <= 0) {
+        showPopup("⚠️ 重洗牌次数已用完！", "⚠");
+        return;
+      }
+
+      // 减少重洗牌次数
       reshuffleCount--;
-      document.getElementById("reshuffle-count").textContent = reshuffleCount;
-      if (reshuffleCount === 0) {
-        document.getElementById("reshuffle-btn").disabled = true;
-      }
+      document.getElementById('reshuffle-count').textContent = reshuffleCount;
 
-      // 收集所有非空图块
-      const tiles = [];
+      // 收集未消除的图片
+      const remainingTiles = [];
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           if (board[r][c] !== -1) {
-            tiles.push(board[r][c]);
+            remainingTiles.push(board[r][c]);
           }
         }
       }
 
-      // 打乱
-      for (let i = tiles.length - 1; i > 0; i--) {
+      // 洗牌
+      for (let i = remainingTiles.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+        [remainingTiles[i], remainingTiles[j]] = [remainingTiles[j], remainingTiles[i]];
       }
 
-      // 重新填回
-      let idx = 0;
+      // 重新分布图片
+      let tileIdx = 0;
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           if (board[r][c] !== -1) {
-            board[r][c] = tiles[idx++];
+            board[r][c] = remainingTiles[tileIdx++];
           }
         }
       }
 
-      // 更新 DOM
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (board[r][c] !== -1) {
-            const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-            cell.innerHTML = '';
-            const img = document.createElement("img");
-            img.src = images[board[r][c]];
-            img.onerror = () => img.src = "https://via.placeholder.com/" + CELL_SIZE + "?text=?";
-            cell.appendChild(img);
-          }
-        }
-      }
+      // 更新棋盘显示
+      const cells = document.querySelectorAll('.cell');
+      cells.forEach(cell => {
+        const r = parseInt(cell.dataset.row);
+        const c = parseInt(cell.dataset.col);
+        
+        cell.innerHTML = "";
+        cell.style.opacity = 1;
+        cell.style.pointerEvents = 'auto';
 
-      resetSelection();
-      showPopup("🎴 牌已重洗！", "🔄");
+        if (board[r][c] !== -1 && board[r][c] < images.length) {
+          const img = document.createElement('img');
+          img.src = images[board[r][c]];
+          img.onerror = () => {
+            img.src = images[0];
+          };
+          cell.appendChild(img);
+        } else {
+          cell.style.opacity = 0;
+          cell.style.pointerEvents = 'none';
+        }
+      });
+
+      saveProgress(); // 保存重洗牌后的状态
+      showPopup("🎴 已重新洗牌！", "🔀");
     }
 
+    // 修复后的点击处理逻辑
     function handleCellClick(row, col) {
+      // 跳过已消除的单元格
       if (board[row][col] === -1) return;
 
       const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+      
+      // 第一次选择
       if (!firstSelected) {
         firstSelected = { row, col };
-        cell.classList.add("selected");
-      } else {
-        if (firstSelected.row === row && firstSelected.col === col) {
-          cell.classList.remove("selected");
-          firstSelected = null;
-          return;
-        }
+        cell.classList.add('selected');
+        return;
+      }
 
-        if (board[firstSelected.row][firstSelected.col] !== board[row][col]) {
-          showPopup("❌ 图标不同！", "⚠️");
-          resetSelection();
-          return;
-        }
+      // 取消选择同一个单元格
+      if (firstSelected.row === row && firstSelected.col === col) {
+        cell.classList.remove('selected');
+        firstSelected = null;
+        return;
+      }
 
-        const path = findPathBFS(firstSelected.row, firstSelected.col, row, col);
+      const firstCell = document.querySelector(`.cell[data-row="${firstSelected.row}"][data-col="${firstSelected.col}"]`);
+      
+      // 检查图片是否相同
+      if (board[firstSelected.row][firstSelected.col] !== board[row][col]) {
+        // 取消选择
+        firstCell.classList.remove('selected');
+        firstSelected = null;
+        showPopup("❌ 图片不相同！", "⚠");
+        return;
+      }
 
+      // 检查是否可以连接（变态模式跳过路径检查）
+      let canConnect = CHEAT_MODE;
+      let path = null;
+      if (!canConnect) {
+        path = findPathBFS(firstSelected.row, firstSelected.col, row, col);
+        canConnect = !!path;
+      }
+
+      if (canConnect) {
+        // 绘制连接路径（非变态模式）
         if (path) {
-          const r1 = firstSelected.row, c1 = firstSelected.col;
-          const r2 = row, c2 = col;
-
-          const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
-          const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
-          cell1.classList.add("removing");
-          cell2.classList.add("removing");
-
-          setTimeout(() => {
-            cell1.innerHTML = '';
-            cell2.innerHTML = '';
-            board[r1][c1] = -1;
-            board[r2][c2] = -1;
-            totalTiles -= 2;
-            document.getElementById("score").textContent = `剩余图块: ${totalTiles}`;
-          }, 500);
-
           drawPathOnCanvas(path, () => {
-            if (totalTiles === 0) {
-              setTimeout(() => {
-                if (currentLevel < 5) {
-                  showPopup(`✅ 第 ${currentLevel} 关完成！<br>即将进入第 ${currentLevel + 1} 关...`, "🎉");
-                  setTimeout(nextLevel, 1500);
-                } else {
-                  showPopup("🎉 恭喜完成第 5 关！", "🏆");
-                }
-              }, 300);
-            }
+            // 路径绘制完成后执行消除逻辑
+            performElimination(firstCell, cell, firstSelected.row, firstSelected.col, row, col);
           });
-
         } else {
-          showPopup("❌ 无法连接！<br>必须存在一条通过空白格的中心路径！", "⚠️");
+          // 变态模式直接消除
+          performElimination(firstCell, cell, firstSelected.row, firstSelected.col, row, col);
         }
-        resetSelection();
+      } else {
+        // 无法连接
+        firstCell.classList.remove('selected');
+        firstSelected = null;
+        showPopup("❌ 无法连接！<br>请选择可通过最多2次转弯连接的相同图片", "⚠");
       }
     }
 
+    // 提取消除逻辑为独立函数，便于复用
+    function performElimination(firstCell, cell, r1, c1, r2, c2) {
+      // 消除两个单元格
+      board[r1][c1] = -1;
+      board[r2][c2] = -1;
+      
+      // 添加消除动画
+      firstCell.classList.add('removing');
+      cell.classList.add('removing');
+      
+      // 更新剩余图块数
+      totalTiles -= 2;
+      document.getElementById('score').textContent = `剩余图块: ${totalTiles}`;
+      
+      // 延迟隐藏单元格从500ms缩短到200ms
+      setTimeout(() => {
+        firstCell.style.opacity = 0;
+        firstCell.style.pointerEvents = 'none';
+        cell.style.opacity = 0;
+        cell.style.pointerEvents = 'none';
+        
+        firstCell.classList.remove('selected', 'removing');
+        cell.classList.remove('removing');
+        
+        firstSelected = null;
+        
+        // 保存进度
+        saveProgress();
+        
+        // 检查关卡是否完成
+        if (totalTiles === 0) {
+          // 通关提示延迟从500ms缩短到100ms
+          setTimeout(() => {
+            showPopup(`✅ 第 ${currentLevel} 关完成！<br>即将进入下一关...`, "🎉");
+            setTimeout(nextLevel, 1500); // 下一关延迟也适当缩短
+          }, 100);
+        }
+      }, 200);
+    }
+
+    // 优化后的路径绘制函数 - 更醒目的红色连接线 + 更快的显示速度
     function drawPathOnCanvas(path, onComplete) {
-      const canvas = document.getElementById("path-canvas");
-      const ctx = canvas.getContext("2d");
+      const canvas = document.getElementById('path-canvas');
+      const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      if (!path || path.length === 0) {
+        if (onComplete) onComplete();
+        return;
+      }
+
+      // 转换路径坐标到画布（修复坐标计算）
       const points = path.map(p => ({
-        x: p.c * (CELL_SIZE + 2) + CELL_SIZE / 2 + 20,
-        y: p.r * (CELL_SIZE + 2) + CELL_SIZE / 2 + 20
+        x: p.c * CELL_SIZE + CELL_SIZE / 2,
+        y: p.r * CELL_SIZE + CELL_SIZE / 2
       }));
 
-      ctx.strokeStyle = "#ff3b30";
-      ctx.lineWidth = 3;
-      ctx.lineCap = "round";
+      // 添加起始点（第一个选中的单元格）
+      const startPoint = {
+        x: firstSelected.col * CELL_SIZE + CELL_SIZE / 2,
+        y: firstSelected.row * CELL_SIZE + CELL_SIZE / 2
+      };
+      
+      // 添加结束点（第二个选中的单元格）
+      const endPoint = {
+        x: path[path.length - 1].x,
+        y: path[path.length - 1].y
+      };
+      
+      // 完整路径：起始点 -> 路径点 -> 结束点
+      const fullPath = [startPoint, ...points, endPoint];
+
+      // 绘制高亮路径
+      // 1. 绘制阴影层（增加立体感）
       ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
+      ctx.moveTo(fullPath[0].x, fullPath[0].y);
+      for (let i = 1; i < fullPath.length; i++) {
+        ctx.lineTo(fullPath[i].x, fullPath[i].y);
       }
+      ctx.strokeStyle = '#8B0000'; // 深红色阴影
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       ctx.stroke();
 
-      setTimeout(() => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (onComplete) onComplete();
-      }, 700);
-    }
-
-    function resetSelection() {
-      if (firstSelected) {
-        document.querySelector(`.cell[data-row="${firstSelected.row}"][data-col="${firstSelected.col}"]`)
-          ?.classList.remove("selected");
-        firstSelected = null;
+      // 2. 绘制主路径（亮红色，更醒目）
+      ctx.beginPath();
+      ctx.moveTo(fullPath[0].x, fullPath[0].y);
+      for (let i = 1; i < fullPath.length; i++) {
+        ctx.lineTo(fullPath[i].x, fullPath[i].y);
       }
+      ctx.strokeStyle = '#FF0000'; // 亮红色
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      // 3. 绘制中心高亮（增加光泽感）
+      ctx.beginPath();
+      ctx.moveTo(fullPath[0].x, fullPath[0].y);
+      for (let i = 1; i < fullPath.length; i++) {
+        ctx.lineTo(fullPath[i].x, fullPath[i].y);
+      }
+      ctx.strokeStyle = '#FF6666'; // 浅红色高光
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      // 更快的闪烁动画（减少闪烁次数，缩短总时长）
+      let flashCount = 0;
+      const flashInterval = setInterval(() => {
+        flashCount++;
+        ctx.globalAlpha = flashCount % 2 === 0 ? 1 : 0.6;
+        
+        // 重绘主路径实现闪烁效果
+        ctx.beginPath();
+        ctx.moveTo(fullPath[0].x, fullPath[0].y);
+        for (let i = 1; i < fullPath.length; i++) {
+          ctx.lineTo(fullPath[i].x, fullPath[i].y);
+        }
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        
+        ctx.globalAlpha = 1;
+        
+        // 闪烁次数从4次减少到2次
+        if (flashCount >= 2) {
+          clearInterval(flashInterval);
+          // 路径显示时间从800ms缩短到300ms
+          setTimeout(() => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (onComplete) onComplete();
+          }, 300);
+        }
+      }, 80); // 闪烁间隔从100ms缩短到80ms
     }
 
-    function showPopup(message, icon = "ℹ️") {
-      document.getElementById("popup-icon").textContent = icon;
-      document.getElementById("popup-message").innerHTML = message.replace(/\n/g, "<br>");
-      document.getElementById("popup").style.display = "flex";
+    function showPopup(message, icon = "ℹ") {
+      const popup = document.getElementById('popup');
+      const popupIcon = document.getElementById('popup-icon');
+      const popupMessage = document.getElementById('popup-message');
+      
+      popupIcon.textContent = icon;
+      popupMessage.innerHTML = message.replace(/\n/g, '<br>');
+      popup.style.display = 'flex';
+      
+      // 3秒后自动关闭弹窗（除了通关提示）
+      if (!message.includes('完成') && !message.includes('通关')) {
+        setTimeout(closePopup, 3000);
+      }
     }
 
     function closePopup() {
-      document.getElementById("popup").style.display = "none";
+      document.getElementById('popup').style.display = 'none';
     }
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closePopup();
+    // ESC键关闭弹窗
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePopup();
     });
 
-    window.onload = initGame;
+    // ========================
+    // 💣 变态模式专属功能
+    // ========================
+    function cheatWinLevel() {
+      if (!CHEAT_MODE) return;
+      
+      // 直接消除所有图块
+      totalTiles = 0;
+      document.getElementById('score').textContent = `剩余图块: 0`;
+      
+      // 更新棋盘状态
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          board[r][c] = -1;
+          
+          const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+          if (cell) {
+            cell.classList.add('removing');
+            setTimeout(() => {
+              cell.style.opacity = 0;
+              cell.style.pointerEvents = 'none';
+              cell.classList.remove('removing');
+            }, 200); // 一键过关消除动画也缩短到200ms
+          }
+        }
+      }
+      
+      // 保存进度
+      saveProgress();
+      
+      // 显示提示并进入下一关
+      showPopup("💥 已使用变态模式跳过本关！", "🚀");
+      setTimeout(() => {
+        if (currentLevel < 15) {
+          nextLevel();
+        } else {
+          showPopup("🏆 恭喜你！<br>已完成全部15关挑战！", "🎉");
+        }
+      }, 1000); // 一键过关提示延迟缩短到1000ms
+    }
+
+    function cheatExplodeAll() {
+      if (!CHEAT_MODE) return;
+      
+      if (totalTiles === 0) {
+        showPopup("🤔 已经没有可消除的图块了！", "💣");
+        return;
+      }
+      
+      // 爆炸消除所有图块
+      const cells = document.querySelectorAll('.cell:not([style*="opacity: 0"])');
+      cells.forEach(cell => {
+        cell.classList.add('removing');
+      });
+      
+      // 更新棋盘状态
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          board[r][c] = -1;
+        }
+      }
+      
+      // 更新剩余图块数
+      totalTiles = 0;
+      document.getElementById('score').textContent = `剩余图块: 0`;
+      
+      // 保存进度
+      saveProgress();
+      
+      // 爆炸消除延迟从800ms缩短到300ms
+      setTimeout(() => {
+        cells.forEach(cell => {
+          cell.style.opacity = 0;
+          cell.style.pointerEvents = 'none';
+          cell.classList.remove('removing');
+        });
+        
+        showPopup("💥 全屏爆炸消除成功！", "💣");
+        
+        // 检查关卡是否完成
+        setTimeout(() => {
+          if (currentLevel < 15) {
+            showPopup(`✅ 第 ${currentLevel} 关完成！<br>即将进入下一关...`, "🎉");
+            setTimeout(nextLevel, 1500);
+          } else {
+            showPopup("🏆 恭喜你！<br>已完成全部15关挑战！", "🎉");
+          }
+        }, 500); // 爆炸消除提示延迟也缩短
+      }, 300);
+    }
+
+    // 页面加载完成后初始化游戏
+    window.onload = function () {
+      // 尝试加载保存的进度
+      const hasSavedProgress = loadProgress();
+      
+      if (hasSavedProgress) {
+        // 恢复保存的游戏状态
+        setupLevel(currentLevel);
+        showPopup("🔄 已恢复上次游戏进度！", "ℹ");
+      } else {
+        // 初始化新游戏
+        initGame(true);
+      }
+    };
   </script>
 </body>
 </html>
